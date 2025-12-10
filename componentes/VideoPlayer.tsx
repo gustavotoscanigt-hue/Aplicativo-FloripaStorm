@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
-import { Annotation, Drawing, ToolMode } from '../types';
+import { Annotation, Drawing, ToolMode } from '../types/index';
 import { denormalizePosition, normalizePosition } from '../lib/utils';
 
 interface VideoPlayerProps {

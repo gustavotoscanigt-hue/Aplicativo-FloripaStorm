@@ -1,6 +1,6 @@
 import React from 'react';
 import { Save, Trash2, Play, Square, X, Share2 } from 'lucide-react';
-import { Annotation, Clip } from '../types';
+import { Annotation, Clip } from '../types/index';
 import { formatTime } from '../lib/utils';
 
 interface SidebarProps {

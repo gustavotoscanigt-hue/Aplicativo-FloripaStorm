@@ -6,7 +6,7 @@ import { Play, Pause, Square, Trash2, PenTool, MousePointer2, Share2 } from 'luc
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import { Annotation, Clip, Drawing, ToolMode, AnalysisData } from './types';
+import { Annotation, Clip, Drawing, ToolMode, AnalysisData } from './types/index';
 import { formatTime, generateId } from './lib/utils';
 
 const App: React.FC = () => {
@@ -115,9 +115,11 @@ const App: React.FC = () => {
       const file = new File([content], fileName, { type: 'application/zip' });
 
       // Try native share (Mobile) or Fallback to download (Desktop)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Cast to any to avoid TypeScript errors with experimental Navigator APIs
+      const nav = navigator as any;
+      if (nav.canShare && nav.canShare({ files: [file] })) {
         try {
-          await navigator.share({
+          await nav.share({
             files: [file],
             title: 'BioMotion Analysis',
             text: 'Here is the biomechanical analysis package.',

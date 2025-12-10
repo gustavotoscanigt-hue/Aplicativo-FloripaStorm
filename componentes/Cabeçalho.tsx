@@ -17,8 +17,9 @@ export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload,
       e.preventDefault();
       setInstallPrompt(e);
     };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    // Cast to any to avoid TypeScript errors with non-standard event
+    window.addEventListener('beforeinstallprompt' as any, handler);
+    return () => window.removeEventListener('beforeinstallprompt' as any, handler);
   }, []);
 
   const handleInstallClick = () => {
