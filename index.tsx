@@ -8,11 +8,11 @@ const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
 
 // Auto-update service worker
+// Configurado para atualizar silenciosamente para uma experiência nativa melhor
 const updateSW = registerSW({
   onNeedRefresh() {
-    if (confirm("Nova versão disponível. Recarregar?")) {
-      updateSW(true);
-    }
+    // Atualiza imediatamente quando uma nova versão é detectada
+    updateSW(true);
   },
   onOfflineReady() {
     console.log("Aplicativo pronto para uso offline.");
