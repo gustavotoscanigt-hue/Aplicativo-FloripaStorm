@@ -6,13 +6,15 @@ import { Play, Pause, Square, Trash2, PenTool, MousePointer2, Share2 } from 'luc
 import VideoPlayer, { VideoPlayerHandle } from './components/VideoPlayer';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import { Annotation, Clip, Drawing, ToolMode, AnalysisData } from './types/index';
-import { formatTime, generateId } from './lib/utils';
+import { Annotation, Clip, Drawing, ToolMode, AnalysisData, AudioNote } from './types/index';
+import { formatTime, generateId, encodeStateToUrl, decodeStateFromUrl } from './lib/utils';
 
 const App: React.FC = () => {
   // --- State ---
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [primaryVideoFile, setPrimaryVideoFile] = useState<File | null>(null);
+  const [isVideoLocal, setIsVideoLocal] = useState(false);
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -23,18 +25,43 @@ const App: React.FC = () => {
   // Tools
   const [toolMode, setToolMode] = useState<ToolMode>('point');
   const [currentColor, setCurrentColor] = useState('#ef4444'); // red-500
-  const [brushSize, setBrushSize] = useState(5);
+  const [brushSize] = useState(5); 
 
   // Data
   const [notes, setNotes] = useState('');
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  const [audioNotes, setAudioNotes] = useState<AudioNote[]>([]);
 
   // Clip Playback State
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
   
   const playerRef = useRef<VideoPlayerHandle>(null);
+
+  // --- Initialization (Check URL Params) ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('v');
+    const d = params.get('d');
+
+    if (v) {
+      setVideoSrc(v);
+      setIsVideoLocal(false);
+      
+      if (d) {
+        const decoded = decodeStateFromUrl(d);
+        if (decoded) {
+          setNotes(decoded.notes || '');
+          setAnnotations(decoded.annotations || []);
+          setDrawings(decoded.drawings || []);
+          setClips(decoded.clips || []);
+          // Audio notes not supported in URL sharing due to size
+          setAudioNotes([]); 
+        }
+      }
+    }
+  }, []);
 
   // --- Handlers ---
 
@@ -44,12 +71,31 @@ const App: React.FC = () => {
       const url = URL.createObjectURL(file);
       setVideoSrc(url);
       setPrimaryVideoFile(file);
+      setIsVideoLocal(true);
+      
       // Reset data
       setAnnotations([]);
       setDrawings([]);
       setClips([]);
+      setAudioNotes([]);
       setNotes('');
+      
+      // Clean up URL parameters if any
+      window.history.pushState({}, '', window.location.pathname);
     }
+  };
+
+  const handleUrlUpload = (url: string) => {
+    setVideoSrc(url);
+    setPrimaryVideoFile(null);
+    setIsVideoLocal(false);
+    
+    // Reset data
+    setAnnotations([]);
+    setDrawings([]);
+    setClips([]);
+    setAudioNotes([]);
+    setNotes('');
   };
 
   const handleAnalysisUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,6 +113,29 @@ const App: React.FC = () => {
         setAnnotations(data.annotations || []);
         setClips(data.clips || []);
 
+        // Load Audio Files
+        const loadedAudioNotes: AudioNote[] = [];
+        // Scan the zip for audio files related to the analysis logic
+        // We look for files matching the pattern "audio_{id}.webm"
+        const audioPromises = Object.keys(zip.files).map(async (filename) => {
+             if (filename.startsWith("audio_") && filename.endsWith(".webm")) {
+                 const id = filename.replace("audio_", "").replace(".webm", "");
+                 const blob = await zip.file(filename)?.async("blob");
+                 if (blob) {
+                     loadedAudioNotes.push({
+                         id,
+                         timestamp: Date.now(),
+                         blob,
+                         url: URL.createObjectURL(blob),
+                         duration: ''
+                     });
+                 }
+             }
+        });
+        await Promise.all(audioPromises);
+        setAudioNotes(loadedAudioNotes);
+
+
         // Try to load video if inside zip
         if (data.primaryVideoFileName) {
           const videoBlob = await zip.file(data.primaryVideoFileName)?.async("blob");
@@ -75,21 +144,71 @@ const App: React.FC = () => {
             const url = URL.createObjectURL(videoFile);
             setVideoSrc(url);
             setPrimaryVideoFile(videoFile);
+            setIsVideoLocal(true);
           } else {
-             alert(`Original video "${data.primaryVideoFileName}" not found in archive. Please load the video separately.`);
+             // Keep existing video if available, otherwise alert
+             if (!videoSrc) {
+                alert(`Vídeo original "${data.primaryVideoFileName}" não encontrado no arquivo. Por favor, carregue o vídeo separadamente.`);
+             }
           }
         }
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to load analysis file.");
+      alert("Falha ao carregar o arquivo de análise.");
     }
   };
 
-  const saveAnalysis = async () => {
-    if (!primaryVideoFile) {
-      alert("Please load a video first.");
+  const generateShareLink = () => {
+    if (isVideoLocal || !videoSrc) {
+      alert("O compartilhamento via link só está disponível para vídeos remotos (via URL). Para arquivos locais, use o botão Salvar/Compartilhar Arquivo.");
       return;
+    }
+
+    const state = {
+      notes,
+      annotations,
+      drawings,
+      clips
+      // Excluding audioNotes intentionally
+    };
+
+    const encodedData = encodeStateToUrl(state);
+    
+    // Check for URL length limits (approx 8000 chars is safe-ish for modern browsers, but 2000 is safer)
+    if (encodedData.length > 10000) {
+      alert("Muitos dados de desenho para criar um link! Por favor, use a opção Salvar Arquivo.");
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?v=${encodeURIComponent(videoSrc)}&d=${encodedData}`;
+
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert("Link copiado para a área de transferência!");
+    }).catch(() => {
+      prompt("Copie este link:", shareUrl);
+    });
+  };
+
+  const saveAnalysis = async () => {
+    // If it's a remote video AND no local changes that require zip (like audio), we could just download JSON.
+    // BUT, if user added audio notes, we MUST use Zip even for remote videos to store the audio blobs.
+    
+    if (!primaryVideoFile && audioNotes.length === 0) {
+        if (!videoSrc) return;
+        
+        // Save just JSON if remote video + no audio
+        const data: AnalysisData = {
+            version: "1.0",
+            notes,
+            drawings,
+            annotations,
+            clips,
+            primaryVideoFileName: "remote_video"
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+        saveAs(blob, `BioMotion_Analise_${new Date().toISOString().slice(0,10)}.json`);
+        return;
     }
 
     setIsSaving(true);
@@ -101,28 +220,34 @@ const App: React.FC = () => {
         drawings,
         annotations,
         clips,
-        primaryVideoFileName: primaryVideoFile.name
+        primaryVideoFileName: primaryVideoFile ? primaryVideoFile.name : "remote_video_url"
       };
 
       const zip = new JSZip();
       zip.file("analysis_data.json", JSON.stringify(data, null, 2));
       
-      // We include the video file in the zip for portability
-      zip.file(primaryVideoFile.name, primaryVideoFile);
+      // Save Audio Notes
+      audioNotes.forEach(note => {
+          zip.file(`audio_${note.id}.webm`, note.blob);
+      });
+
+      // Include video if local
+      if (primaryVideoFile) {
+        zip.file(primaryVideoFile.name, primaryVideoFile);
+      }
 
       const content = await zip.generateAsync({ type: "blob" });
       const fileName = `BioMotion_${new Date().toISOString().slice(0,10)}.zip`;
       const file = new File([content], fileName, { type: 'application/zip' });
 
       // Try native share (Mobile) or Fallback to download (Desktop)
-      // Cast to any to avoid TypeScript errors with experimental Navigator APIs
       const nav = navigator as any;
       if (nav.canShare && nav.canShare({ files: [file] })) {
         try {
           await nav.share({
             files: [file],
             title: 'BioMotion Analysis',
-            text: 'Here is the biomechanical analysis package.',
+            text: 'Aqui está o pacote de análise biomecânica.',
           });
         } catch (error) {
            if ((error as Error).name !== 'AbortError') {
@@ -135,7 +260,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error("Save failed:", error);
-      alert("Failed to create package.");
+      alert("Falha ao criar o pacote.");
     } finally {
       setIsSaving(false);
     }
@@ -148,7 +273,7 @@ const App: React.FC = () => {
        setIsPlaying(false);
     }
 
-    const text = prompt("Annotation / Clip Name:", `Point ${annotations.length + 1}`);
+    const text = prompt("Nome da Anotação / Clipe:", `Ponto ${annotations.length + 1}`);
     if (!text) return;
 
     const newAnnotation: Annotation = {
@@ -242,10 +367,11 @@ const App: React.FC = () => {
 
 
   const clearAll = () => {
-    if(confirm("Clear all annotations, drawings and clips?")) {
+    if(confirm("Limpar todas as anotações, desenhos, clipes e áudios?")) {
       setAnnotations([]);
       setDrawings([]);
       setClips([]);
+      setAudioNotes([]);
       setNotes('');
       stopClip();
     }
@@ -257,6 +383,7 @@ const App: React.FC = () => {
       <Header 
         onVideoUpload={handleVideoUpload}
         onAnalysisUpload={handleAnalysisUpload}
+        onUrlUpload={handleUrlUpload}
         onToggleSidebar={() => setIsSidebarOpen(true)}
       />
 
@@ -310,13 +437,13 @@ const App: React.FC = () => {
                       onClick={() => setToolMode('point')}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs md:text-sm font-medium transition ${toolMode === 'point' ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500 ring-offset-1' : 'text-gray-600 hover:bg-gray-100'}`}
                     >
-                       <MousePointer2 className="w-4 h-4" /> <span className="hidden sm:inline">Point</span>
+                       <MousePointer2 className="w-4 h-4" /> <span className="hidden sm:inline">Ponto</span>
                     </button>
                     <button 
                       onClick={() => setToolMode('pen')}
                       className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs md:text-sm font-medium transition ${toolMode === 'pen' ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500 ring-offset-1' : 'text-gray-600 hover:bg-gray-100'}`}
                     >
-                       <PenTool className="w-4 h-4" /> <span className="hidden sm:inline">Draw</span>
+                       <PenTool className="w-4 h-4" /> <span className="hidden sm:inline">Desenhar</span>
                     </button>
                     
                     <input 
@@ -327,7 +454,7 @@ const App: React.FC = () => {
                     />
                  </div>
                  
-                 <button onClick={clearAll} className="ml-auto text-red-500 hover:bg-red-50 p-2 rounded transition" title="Clear All">
+                 <button onClick={clearAll} className="ml-auto text-red-500 hover:bg-red-50 p-2 rounded transition" title="Limpar Tudo">
                     <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
                  </button>
               </div>
@@ -341,11 +468,15 @@ const App: React.FC = () => {
           setClips={setClips}
           annotations={annotations}
           setAnnotations={setAnnotations}
+          audioNotes={audioNotes}
+          setAudioNotes={setAudioNotes}
           activeClipId={activeClipId}
           onPlayClip={playClip}
           onStopClip={stopClip}
           onSave={saveAnalysis}
+          onShareLink={generateShareLink}
           videoLoaded={!!videoSrc}
+          isVideoLocal={isVideoLocal}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
@@ -355,7 +486,7 @@ const App: React.FC = () => {
       {isSaving && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center flex-col text-white">
             <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="font-medium">Packaging Analysis...</p>
+            <p className="font-medium">Empacotando Análise...</p>
         </div>
       )}
     </div>

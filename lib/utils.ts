@@ -1,3 +1,4 @@
+
 export const formatTime = (seconds: number): string => {
   if (!seconds || isNaN(seconds)) return "00:00";
   const mins = Math.floor(seconds / 60);
@@ -30,4 +31,33 @@ export const denormalizePosition = (
     x: x * width,
     y: y * height,
   };
+};
+
+// Helper to encode JSON data into a URL-safe Base64 string (handles Unicode)
+export const encodeStateToUrl = (data: any): string => {
+  try {
+    const json = JSON.stringify(data);
+    // Encode specifically for URL (handling UTF-8)
+    return btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g,
+        function toSolidBytes(match: string, p1: string) {
+            return String.fromCharCode(parseInt(p1, 16));
+    }));
+  } catch (e) {
+    console.error("Failed to encode state", e);
+    return "";
+  }
+};
+
+// Helper to decode URL-safe Base64 string back to JSON
+export const decodeStateFromUrl = (str: string): any => {
+  try {
+    const decodedStr = atob(str);
+    const json = Array.from(decodedStr).map((c: string) => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join('');
+    return JSON.parse(decodeURIComponent(json));
+  } catch (e) {
+    console.error("Failed to decode state", e);
+    return null;
+  }
 };

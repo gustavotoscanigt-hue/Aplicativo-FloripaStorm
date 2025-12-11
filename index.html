@@ -1,19 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#4f46e5" />
+    
+    <!-- iOS support -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BioMotion" />
+    <link rel="apple-touch-icon" href="https://esm.sh/lucide-static@0.321.0/icons/file-video.svg" />
+
     <title>BioMotion Pro</title>
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Manifest is now injected by VitePWA, removing manual link -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
       body { overscroll-behavior-y: none; }
+      /* Safe area support for iPhone notch */
+      .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+      }
     </style>
   <script type="importmap">
 {
@@ -25,7 +35,8 @@
     "file-saver": "https://esm.sh/file-saver@^2.0.5",
     "lucide-react": "https://esm.sh/lucide-react@^0.559.0",
     "vite": "https://esm.sh/vite@^7.2.7",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0"
   }
 }
 </script>

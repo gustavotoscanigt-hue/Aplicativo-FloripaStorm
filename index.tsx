@@ -1,9 +1,23 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+// @ts-ignore
+import { registerSW } from 'virtual:pwa-register';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
+
+// Auto-update service worker
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm("Nova versão disponível. Recarregar?")) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    console.log("Aplicativo pronto para uso offline.");
+  },
+});
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
@@ -11,16 +25,3 @@ root.render(
     <App />
   </React.StrictMode>
 );
-
-// Service Worker Registration
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then((registration) => {
-        console.log('SW registered: ', registration);
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError);
-      });
-  });
-}

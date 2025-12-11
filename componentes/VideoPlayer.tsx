@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
-import { Annotation, Drawing, ToolMode } from '../types/index';
+import { Annotation, Drawing, ToolMode, DrawingPath } from '../types/index';
 import { denormalizePosition, normalizePosition } from '../lib/utils';
 
 interface VideoPlayerProps {
@@ -46,6 +46,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
   const [isDrawing, setIsDrawing] = useState(false);
   const currentPathRef = useRef<{ x: number; y: number; isStart: boolean }[]>([]);
 
+  // Check if we are in Smart Clip mode (Zoom Active)
+  const isZoomActive = zoomConfig?.active || false;
+
   useImperativeHandle(ref, () => ({
     play: () => videoRef.current?.play(),
     pause: () => videoRef.current?.pause(),
@@ -83,54 +86,56 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const currentTime = video.currentTime;
-        const tolerance = 0.5; // Show drawings within 0.5s window
-
-        drawings.forEach(drawing => {
-          if (Math.abs(drawing.time - currentTime) < tolerance) {
-            ctx.strokeStyle = drawing.color;
-            ctx.lineWidth = drawing.size;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            
-            let first = true;
-            drawing.path.forEach(p => {
-              const pos = denormalizePosition(p.x, p.y, canvas.width, canvas.height);
-              if (first || p.isStart) {
-                ctx.moveTo(pos.x, pos.y);
-                first = false;
-              } else {
-                ctx.lineTo(pos.x, pos.y);
-                // We stroke immediately to avoid long path issues in some browsers
-                ctx.stroke();
+        // --- CHANGE: Only render drawings if NOT in Zoom/Clip mode ---
+        if (!isZoomActive) {
+            const currentTime = video.currentTime;
+            const tolerance = 0.5; // Show drawings within 0.5s window
+    
+            drawings.forEach(drawing => {
+              if (Math.abs(drawing.time - currentTime) < tolerance) {
+                ctx.strokeStyle = drawing.color;
+                ctx.lineWidth = drawing.size;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
                 ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y);
+                
+                let first = true;
+                drawing.path.forEach((p: DrawingPath) => {
+                  const pos = denormalizePosition(p.x, p.y, canvas.width, canvas.height);
+                  if (first || p.isStart) {
+                    ctx.moveTo(pos.x, pos.y);
+                    first = false;
+                  } else {
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x, pos.y);
+                  }
+                });
               }
             });
-          }
-        });
-
-        // Draw current stroke being drawn
-        if (isDrawing && currentPathRef.current.length > 0) {
-          ctx.strokeStyle = currentColor;
-          ctx.lineWidth = brushSize;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.beginPath();
-          let first = true;
-           currentPathRef.current.forEach(p => {
-              const pos = denormalizePosition(p.x, p.y, canvas.width, canvas.height);
-              if (first || p.isStart) {
-                ctx.moveTo(pos.x, pos.y);
-                first = false;
-              } else {
-                ctx.lineTo(pos.x, pos.y);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y);
-              }
-            });
+    
+            // Draw current stroke being drawn
+            if (isDrawing && currentPathRef.current.length > 0) {
+              ctx.strokeStyle = currentColor;
+              ctx.lineWidth = brushSize;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              let first = true;
+               currentPathRef.current.forEach(p => {
+                  const pos = denormalizePosition(p.x, p.y, canvas.width, canvas.height);
+                  if (first || p.isStart) {
+                    ctx.moveTo(pos.x, pos.y);
+                    first = false;
+                  } else {
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x, pos.y);
+                  }
+                });
+            }
         }
       }
       animationFrameId = requestAnimationFrame(render);
@@ -138,7 +143,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
 
     render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [drawings, isDrawing, currentColor, brushSize]);
+  }, [drawings, isDrawing, currentColor, brushSize, isZoomActive]);
 
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -148,6 +153,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
     if (toolMode === 'pen') {
       e.currentTarget.releasePointerCapture(e.pointerId); 
     }
+
+    // Disable interaction if playing a clip (Zoom Active)
+    if (isZoomActive) return;
 
     const pos = normalizePosition(e.clientX, e.clientY, containerRef.current);
 
@@ -160,6 +168,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    // Disable interaction if playing a clip
+    if (isZoomActive) return;
+
     if (!isDrawing || toolMode !== 'pen' || !containerRef.current) return;
     e.preventDefault(); 
     const pos = normalizePosition(e.clientX, e.clientY, containerRef.current);
@@ -167,6 +178,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
   };
 
   const handlePointerUp = () => {
+    // Disable interaction if playing a clip
+    if (isZoomActive) {
+        setIsDrawing(false);
+        currentPathRef.current = [];
+        return;
+    }
+
     if (isDrawing && videoRef.current) {
       setIsDrawing(false);
       if (currentPathRef.current.length > 1) {
@@ -182,7 +200,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
     }
   };
 
-  const transformStyle = zoomConfig && zoomConfig.active
+  const transformStyle = isZoomActive && zoomConfig
     ? {
         transform: 'scale(2.0)',
         transformOrigin: `${zoomConfig.x * 100}% ${zoomConfig.y * 100}%`
@@ -196,7 +214,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
     <div className="relative w-full aspect-video bg-black overflow-hidden rounded-lg shadow-xl group">
       {!videoSrc && (
         <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-           No Video Loaded
+           Nenhum vídeo carregado
         </div>
       )}
       
@@ -216,15 +234,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(({
         
         <canvas
           ref={canvasRef}
-          className={`absolute inset-0 w-full h-full touch-none ${toolMode === 'pen' || toolMode === 'point' ? 'cursor-crosshair' : 'cursor-default'}`}
+          className={`absolute inset-0 w-full h-full touch-none ${!isZoomActive && (toolMode === 'pen' || toolMode === 'point') ? 'cursor-crosshair' : 'cursor-default'}`}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         />
 
-        {/* DOM Overlay for Annotation Points (so they are interactable if needed, though mostly visual) */}
-        {videoRef.current && annotations.map(anno => {
+        {/* DOM Overlay for Annotation Points. CHANGE: Hide if ZoomActive */}
+        {videoRef.current && !isZoomActive && annotations.map(anno => {
            const isVisible = Math.abs(anno.time - videoRef.current!.currentTime) < 0.5;
            if (!isVisible) return null;
            

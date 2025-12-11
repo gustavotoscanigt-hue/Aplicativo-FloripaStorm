@@ -1,13 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Upload, FileVideo, Menu, Download } from 'lucide-react';
+import { Upload, FileVideo, Menu, Download, Link as LinkIcon } from 'lucide-react';
 
 interface HeaderProps {
   onVideoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAnalysisUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onUrlUpload: (url: string) => void;
   onToggleSidebar: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload, onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload, onUrlUpload, onToggleSidebar }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -17,7 +18,6 @@ export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload,
       e.preventDefault();
       setInstallPrompt(e);
     };
-    // Cast to any to avoid TypeScript errors with non-standard event
     window.addEventListener('beforeinstallprompt' as any, handler);
     return () => window.removeEventListener('beforeinstallprompt' as any, handler);
   }, []);
@@ -30,6 +30,17 @@ export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload,
         setInstallPrompt(null);
       }
     });
+  };
+
+  const handleUrlClick = () => {
+    const url = prompt("Insira a URL pública do vídeo (mp4/webm):");
+    if (url) {
+      if (url.startsWith('http')) {
+         onUrlUpload(url);
+      } else {
+         alert("Por favor, insira uma URL válida começando com http:// ou https://");
+      }
+    }
   };
 
   return (
@@ -55,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload,
             onClick={handleInstallClick}
             className="px-3 py-2 text-xs md:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md flex items-center gap-2 transition shadow-sm animate-pulse"
           >
-            <Download className="w-4 h-4" /> <span className="hidden sm:inline">Install App</span>
+            <Download className="w-4 h-4" /> <span className="hidden sm:inline">Instalar App</span>
           </button>
         )}
 
@@ -75,16 +86,24 @@ export const Header: React.FC<HeaderProps> = ({ onVideoUpload, onAnalysisUpload,
         />
 
         <button
+          onClick={handleUrlClick}
+          className="px-3 py-2 text-xs md:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2 transition"
+          title="Carregar via URL"
+        >
+          <LinkIcon className="w-4 h-4" /> <span className="hidden sm:inline">URL</span>
+        </button>
+
+        <button
           onClick={() => fileInputRef.current?.click()}
           className="px-3 py-2 text-xs md:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2 transition"
         >
-          <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Load Video</span>
+          <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Vídeo</span>
         </button>
         <button
           onClick={() => zipInputRef.current?.click()}
           className="px-3 py-2 text-xs md:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2 transition"
         >
-          <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Load Analysis</span>
+          <Upload className="w-4 h-4" /> <span className="hidden sm:inline">Análise</span>
         </button>
       </div>
     </header>

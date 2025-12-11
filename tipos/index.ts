@@ -1,3 +1,4 @@
+
 export interface Point {
   x: number;
   y: number;
@@ -26,6 +27,14 @@ export interface Annotation {
   color: string;
 }
 
+export interface AudioNote {
+  id: string;
+  timestamp: number; // Date created
+  blob: Blob; // The raw audio data
+  url: string; // Blob URL for playback
+  duration?: string;
+}
+
 export interface Clip {
   id: string;
   name: string;
@@ -44,6 +53,8 @@ export interface AnalysisData {
   annotations: Annotation[];
   clips: Clip[];
   primaryVideoFileName?: string;
+  // Audio is handled separately during zip/unzip due to Blob serialization issues, 
+  // but logically part of the analysis.
 }
 
 export type ToolMode = 'point' | 'pen';
