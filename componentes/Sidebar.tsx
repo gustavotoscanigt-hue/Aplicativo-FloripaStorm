@@ -319,6 +319,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                  <span className="hidden md:inline">Salvar Pacote de Análise</span>
              </div>
           </button>
+          
+          <div className="text-center">
+            <span className="text-[10px] text-gray-400 font-mono">BioMotion Pro v1.1</span>
+          </div>
         </div>
       </aside>
     </>

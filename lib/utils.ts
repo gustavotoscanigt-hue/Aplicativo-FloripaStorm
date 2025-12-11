@@ -39,7 +39,7 @@ export const encodeStateToUrl = (data: any): string => {
     const json = JSON.stringify(data);
     // Encode specifically for URL (handling UTF-8)
     return btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g,
-        function toSolidBytes(match: string, p1: string) {
+        function toSolidBytes(_: string, p1: string) {
             return String.fromCharCode(parseInt(p1, 16));
     }));
   } catch (e) {

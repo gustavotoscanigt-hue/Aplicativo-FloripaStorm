@@ -1,5 +1,7 @@
 {
   "name": "BioMotion Pro",
   "description": "Professional Biomechanical Video Analysis Tool for Athletes and Coaches. Features frame-by-frame analysis, drawing tools, and auto-zoom clips.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
