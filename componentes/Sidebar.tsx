@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           
           <div className="text-center">
-            <span className="text-[10px] text-gray-400 font-mono">BioMotion Pro v1.3</span>
+            <span className="text-[10px] text-gray-400 font-mono">BioMotion Pro v1.4</span>
           </div>
         </div>
       </aside>

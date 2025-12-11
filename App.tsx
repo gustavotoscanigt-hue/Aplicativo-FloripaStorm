@@ -3,8 +3,9 @@ import JSZip from 'jszip';
 import saveAs from 'file-saver';
 import { Play, Pause, Square, Trash2, PenTool, MousePointer2, Share2 } from 'lucide-react';
 
-// MUDANÇA CRÍTICA: Importando do novo arquivo único para resolver erro de build
-import VideoPlayer, { VideoPlayerHandle } from './components/BiomechanicalPlayer';
+// CORREÇÃO DEFINITIVA: Importando do arquivo na raiz (mesmo nível) para evitar erros de pasta 'components'
+import VideoPlayer, { VideoPlayerHandle } from './AnalysisPlayer';
+
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { Annotation, Clip, Drawing, ToolMode, AnalysisData, AudioNote } from './types/index';
